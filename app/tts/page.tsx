@@ -13,14 +13,15 @@ const LANGUAGES = [
   { code: "es-ES", label: "🇪🇸 Español" },
 ];
 
+// lang = BCP-47 tag passed to Web Speech API; pitchDelta adjusts pitch for playback
 const VI_VOICES = [
-  { id: "vi",         label: "Bắc",   lang: "vi" },
-  { id: "vi-central", label: "Trung", lang: "vi-vn-x-central" },
-  { id: "vi-south",   label: "Nam bộ",lang: "vi-vn-x-south" },
-  { id: "vi+m1",      label: "Nam 1", lang: "vi" },
-  { id: "vi+m2",      label: "Nam 2", lang: "vi" },
-  { id: "vi+f1",      label: "Nữ 1",  lang: "vi" },
-  { id: "vi+f2",      label: "Nữ 2",  lang: "vi" },
+  { id: "vi",         label: "Bắc",    speechLang: "vi-VN",           pitchDelta: 0 },
+  { id: "vi-central", label: "Trung",  speechLang: "vi-VN-x-central", pitchDelta: 0 },
+  { id: "vi-south",   label: "Nam bộ", speechLang: "vi-VN-x-south",   pitchDelta: 0 },
+  { id: "vi+m1",      label: "Nam 1",  speechLang: "vi-VN",           pitchDelta: -0.3 },
+  { id: "vi+m2",      label: "Nam 2",  speechLang: "vi-VN",           pitchDelta: -0.5 },
+  { id: "vi+f1",      label: "Nữ 1",   speechLang: "vi-VN",           pitchDelta: 0.3 },
+  { id: "vi+f2",      label: "Nữ 2",   speechLang: "vi-VN",           pitchDelta: 0.5 },
 ];
 
 const STYLE_PRESETS = [
@@ -94,10 +95,21 @@ export default function TTSPage() {
     if (!text.trim() || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text.trim());
-    utter.lang = lang;
+
+    if (isVietnamese) {
+      const viConf = VI_VOICES.find((v) => v.id === viVoice) ?? VI_VOICES[0];
+      utter.lang = viConf.speechLang;
+      utter.pitch = Math.max(0, Math.min(2, pitch + viConf.pitchDelta));
+      // pick a matching voice if available, else let the engine choose
+      const match = voices.find((v) => v.lang === viConf.speechLang)
+        ?? voices.find((v) => v.lang.startsWith("vi"));
+      if (match) utter.voice = match;
+    } else {
+      utter.lang = lang;
+      utter.pitch = pitch;
+      if (selectedVoice) utter.voice = selectedVoice;
+    }
     utter.rate = speed;
-    utter.pitch = pitch;
-    if (selectedVoice) utter.voice = selectedVoice;
     utter.onstart = () => { setSpeaking(true); setPaused(false); };
     utter.onend = () => { setSpeaking(false); setPaused(false); };
     utter.onerror = () => { setSpeaking(false); setPaused(false); };
