@@ -32,3 +32,4 @@ backend/__pycache__/
 backend/app/**/__pycache__/
 backend/storage/
 *.pyc
+backend/**/__pycache__/
