@@ -121,6 +121,8 @@ export default function TTSPage() {
     if (!text.trim()) return;
     setDownloading(true);
     setDownloadMsg("");
+
+    // 1. Try local API route (works when running next dev / next start)
     try {
       const langCode = lang.split("-")[0];
       const voice = isVietnamese ? viVoice : langCode;
@@ -128,24 +130,46 @@ export default function TTSPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: text.trim(), voice, speed, pitch }),
+        signal: AbortSignal.timeout(12000),
       });
-      if (!res.ok) throw new Error("failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "voiceforge.mp3";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      setDownloadMsg("✅ Đã tải xuống!");
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "voiceforge.mp3";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setDownloadMsg("✅ Đã tải xuống!");
+        setDownloading(false);
+        setTimeout(() => setDownloadMsg(""), 4000);
+        return;
+      }
     } catch {
-      setDownloadMsg("⚠️ Tính năng này cần chạy app cục bộ (next dev)");
-    } finally {
-      setDownloading(false);
-      setTimeout(() => setDownloadMsg(""), 4000);
+      // fall through to Google TTS fallback
     }
+
+    // 2. Fallback: open Google Translate TTS URL (browser handles download/playback)
+    const trimmed = text.trim();
+    if (trimmed.length > 200) {
+      setDownloadMsg("⚠️ Rút gọn còn ≤200 ký tự để tải, hoặc chạy app cục bộ");
+      setDownloading(false);
+      setTimeout(() => setDownloadMsg(""), 5000);
+      return;
+    }
+    const langCode = lang.split("-")[0];
+    const ttsUrl = new URL("https://translate.google.com/translate_tts");
+    ttsUrl.searchParams.set("ie", "UTF-8");
+    ttsUrl.searchParams.set("q", trimmed);
+    ttsUrl.searchParams.set("tl", langCode);
+    ttsUrl.searchParams.set("client", "tw-ob");
+    ttsUrl.searchParams.set("ttsspeed", String(Math.min(speed, 1.5)));
+    window.open(ttsUrl.toString(), "_blank");
+    setDownloadMsg("✅ Đang mở — nhấn tải xuống trong trình duyệt");
+    setDownloading(false);
+    setTimeout(() => setDownloadMsg(""), 5000);
   };
 
   const langVoices = voices.filter((v) => v.lang.startsWith(lang.split("-")[0]));
@@ -358,7 +382,7 @@ export default function TTSPage() {
 
         {/* Info note */}
         <p className="text-center text-[11px] text-white/25 mt-2">
-          Phát giọng qua trình duyệt · Tải MP3 cần espeak-ng cục bộ
+          Phát giọng qua trình duyệt · Tải MP3 qua Google TTS (≤200 ký tự)
         </p>
       </div>
     </div>
