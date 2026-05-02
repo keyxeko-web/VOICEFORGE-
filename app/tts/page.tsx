@@ -13,6 +13,25 @@ const LANGUAGES = [
   { code: "es-ES", label: "🇪🇸 Español" },
 ];
 
+const VI_VOICES = [
+  { id: "vi",         label: "Bắc",   lang: "vi" },
+  { id: "vi-central", label: "Trung", lang: "vi-vn-x-central" },
+  { id: "vi-south",   label: "Nam bộ",lang: "vi-vn-x-south" },
+  { id: "vi+m1",      label: "Nam 1", lang: "vi" },
+  { id: "vi+m2",      label: "Nam 2", lang: "vi" },
+  { id: "vi+f1",      label: "Nữ 1",  lang: "vi" },
+  { id: "vi+f2",      label: "Nữ 2",  lang: "vi" },
+];
+
+const STYLE_PRESETS = [
+  { id: "normal",   label: "Bình thường", speed: 1.0, pitch: 1.0 },
+  { id: "cheerful", label: "Vui tươi",    speed: 1.15, pitch: 1.3 },
+  { id: "gentle",   label: "Nhẹ nhàng",  speed: 0.85, pitch: 1.1 },
+  { id: "firm",     label: "Mạnh mẽ",    speed: 1.1,  pitch: 0.8 },
+  { id: "fast",     label: "Nhanh",       speed: 1.5,  pitch: 1.0 },
+  { id: "slow",     label: "Chậm",        speed: 0.7,  pitch: 0.95 },
+];
+
 const SAMPLES: Record<string, string> = {
   "vi-VN": "Xin chào! Tôi là VoiceForge AI, ứng dụng chuyển văn bản thành giọng nói miễn phí.",
   "en-US": "Hello! I am VoiceForge AI, a free text-to-speech application powered by your browser.",
@@ -34,15 +53,18 @@ export default function TTSPage() {
   const [supported, setSupported] = useState(true);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [viVoice, setViVoice] = useState("vi");
+  const [activePreset, setActivePreset] = useState("normal");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadMsg, setDownloadMsg] = useState("");
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const maxChars = 1000;
+  const isVietnamese = lang === "vi-VN";
 
-  // Load voices
   const loadVoices = useCallback(() => {
     if (!window.speechSynthesis) return;
-    const all = window.speechSynthesis.getVoices();
-    setVoices(all);
+    setVoices(window.speechSynthesis.getVoices());
   }, []);
 
   useEffect(() => {
@@ -53,50 +75,77 @@ export default function TTSPage() {
     return () => window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
   }, [loadVoices]);
 
-  // Auto-select best voice for language
   useEffect(() => {
     const matching = voices.filter((v) => v.lang.startsWith(lang.split("-")[0]));
     if (matching.length > 0) {
-      const preferred = matching.find((v) => v.lang === lang) || matching[0];
-      setSelectedVoice(preferred);
+      setSelectedVoice(matching.find((v) => v.lang === lang) ?? matching[0]);
     } else {
       setSelectedVoice(null);
     }
   }, [lang, voices]);
 
+  const applyPreset = (preset: typeof STYLE_PRESETS[number]) => {
+    setSpeed(preset.speed);
+    setPitch(preset.pitch);
+    setActivePreset(preset.id);
+  };
+
   const speak = () => {
     if (!text.trim() || !window.speechSynthesis) return;
-
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text.trim());
     utter.lang = lang;
     utter.rate = speed;
     utter.pitch = pitch;
     if (selectedVoice) utter.voice = selectedVoice;
-
     utter.onstart = () => { setSpeaking(true); setPaused(false); };
     utter.onend = () => { setSpeaking(false); setPaused(false); };
     utter.onerror = () => { setSpeaking(false); setPaused(false); };
-
     utterRef.current = utter;
     window.speechSynthesis.speak(utter);
   };
 
   const togglePause = () => {
     if (!window.speechSynthesis) return;
-    if (paused) {
-      window.speechSynthesis.resume();
-      setPaused(false);
-    } else {
-      window.speechSynthesis.pause();
-      setPaused(true);
-    }
+    if (paused) { window.speechSynthesis.resume(); setPaused(false); }
+    else { window.speechSynthesis.pause(); setPaused(true); }
   };
 
   const stop = () => {
     window.speechSynthesis?.cancel();
     setSpeaking(false);
     setPaused(false);
+  };
+
+  const downloadAudio = async () => {
+    if (!text.trim()) return;
+    setDownloading(true);
+    setDownloadMsg("");
+    try {
+      const langCode = lang.split("-")[0];
+      const voice = isVietnamese ? viVoice : langCode;
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text.trim(), voice, speed, pitch }),
+      });
+      if (!res.ok) throw new Error("failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "voiceforge.mp3";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setDownloadMsg("✅ Đã tải xuống!");
+    } catch {
+      setDownloadMsg("⚠️ Tính năng này cần chạy app cục bộ (next dev)");
+    } finally {
+      setDownloading(false);
+      setTimeout(() => setDownloadMsg(""), 4000);
+    }
   };
 
   const langVoices = voices.filter((v) => v.lang.startsWith(lang.split("-")[0]));
@@ -135,7 +184,8 @@ export default function TTSPage() {
           {LANGUAGES.map((l) => (
             <button key={l.code} onClick={() => { setLang(l.code); stop(); }}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                lang === l.code ? "bg-[#E60012] text-white shadow-lg shadow-red-900/30"
+                lang === l.code
+                  ? "bg-[#E60012] text-white shadow-lg shadow-red-900/30"
                   : "bg-white/[0.05] text-white/50 hover:text-white"
               }`}>
               {l.label}
@@ -143,21 +193,53 @@ export default function TTSPage() {
           ))}
         </div>
 
-        {/* Voice selector (if multiple voices available) */}
-        {langVoices.length > 1 && (
+        {/* Vietnamese voice variants */}
+        {isVietnamese && (
+          <div>
+            <p className="text-[11px] text-white/40 mb-2">Giọng đọc</p>
+            <div className="flex gap-2 flex-wrap">
+              {VI_VOICES.map((v) => (
+                <button key={v.id} onClick={() => setViVoice(v.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    viVoice === v.id
+                      ? "bg-[#C9A961] text-black"
+                      : "bg-white/[0.05] text-white/50 hover:text-white"
+                  }`}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Non-Vietnamese Web Speech voice selector */}
+        {!isVietnamese && langVoices.length > 1 && (
           <select
-            value={selectedVoice?.name || ""}
-            onChange={(e) => {
-              const v = voices.find((v) => v.name === e.target.value);
-              setSelectedVoice(v || null);
-            }}
-            className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-white text-xs focus:outline-none"
-          >
+            value={selectedVoice?.name ?? ""}
+            onChange={(e) => setSelectedVoice(voices.find((v) => v.name === e.target.value) ?? null)}
+            className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-white text-xs focus:outline-none">
             {langVoices.map((v) => (
               <option key={v.name} value={v.name}>{v.name} {v.localService ? "🔵" : "☁️"}</option>
             ))}
           </select>
         )}
+
+        {/* Style presets */}
+        <div>
+          <p className="text-[11px] text-white/40 mb-2">Phong cách giọng</p>
+          <div className="flex gap-2 flex-wrap">
+            {STYLE_PRESETS.map((p) => (
+              <button key={p.id} onClick={() => applyPreset(p)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  activePreset === p.id
+                    ? "bg-white/20 text-white ring-1 ring-white/30"
+                    : "bg-white/[0.05] text-white/50 hover:text-white"
+                }`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Textarea */}
         <div className="relative">
@@ -177,7 +259,7 @@ export default function TTSPage() {
         </div>
 
         {/* Sample */}
-        <button onClick={() => setText(SAMPLES[lang] || SAMPLES["en-US"])}
+        <button onClick={() => setText(SAMPLES[lang] ?? SAMPLES["en-US"])}
           className="self-start text-xs text-[#C9A961]/70 hover:text-[#C9A961] transition-colors">
           ✨ Văn bản mẫu
         </button>
@@ -190,7 +272,7 @@ export default function TTSPage() {
               <span className="text-[11px] font-mono text-[#C9A961]">{speed.toFixed(1)}x</span>
             </div>
             <input type="range" min="0.5" max="2" step="0.1" value={speed}
-              onChange={(e) => setSpeed(parseFloat(e.target.value))}
+              onChange={(e) => { setSpeed(parseFloat(e.target.value)); setActivePreset(""); }}
               className="w-full accent-[#E60012] h-1" />
             <div className="flex justify-between text-[10px] text-white/20 mt-1">
               <span>Chậm</span><span>Nhanh</span>
@@ -202,7 +284,7 @@ export default function TTSPage() {
               <span className="text-[11px] font-mono text-[#C9A961]">{pitch.toFixed(1)}</span>
             </div>
             <input type="range" min="0" max="2" step="0.1" value={pitch}
-              onChange={(e) => setPitch(parseFloat(e.target.value))}
+              onChange={(e) => { setPitch(parseFloat(e.target.value)); setActivePreset(""); }}
               className="w-full accent-[#E60012] h-1" />
             <div className="flex justify-between text-[10px] text-white/20 mt-1">
               <span>Trầm</span><span>Cao</span>
@@ -214,7 +296,8 @@ export default function TTSPage() {
         {!speaking ? (
           <motion.button onClick={speak} disabled={!text.trim()} whileTap={{ scale: 0.97 }}
             className={`w-full py-4 rounded-2xl font-bold text-base transition-all ${
-              !text.trim() ? "bg-white/[0.06] text-white/30 cursor-not-allowed"
+              !text.trim()
+                ? "bg-white/[0.06] text-white/30 cursor-not-allowed"
                 : "bg-[#E60012] text-white shadow-lg shadow-red-900/40"
             }`}>
             🎙️ Đọc ngay
@@ -231,6 +314,32 @@ export default function TTSPage() {
             </motion.button>
           </div>
         )}
+
+        {/* Download button */}
+        <motion.button
+          onClick={downloadAudio}
+          disabled={!text.trim() || downloading}
+          whileTap={{ scale: 0.97 }}
+          className={`w-full py-3.5 rounded-2xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+            !text.trim() || downloading
+              ? "bg-white/[0.04] text-white/25 cursor-not-allowed"
+              : "bg-white/[0.08] text-white/80 hover:bg-white/[0.12] border border-white/10"
+          }`}>
+          {downloading
+            ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full" /> Đang tạo...</>
+            : "⬇️ Tải MP3"}
+        </motion.button>
+
+        {/* Download status message */}
+        <AnimatePresence>
+          {downloadMsg && (
+            <motion.p
+              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="text-center text-xs text-white/50">
+              {downloadMsg}
+            </motion.p>
+          )}
+        </AnimatePresence>
 
         {/* Speaking wave animation */}
         <AnimatePresence>
@@ -249,7 +358,7 @@ export default function TTSPage() {
 
         {/* Info note */}
         <p className="text-center text-[11px] text-white/25 mt-2">
-          Sử dụng giọng đọc tích hợp của trình duyệt · Không cần internet
+          Phát giọng qua trình duyệt · Tải MP3 cần espeak-ng cục bộ
         </p>
       </div>
     </div>
