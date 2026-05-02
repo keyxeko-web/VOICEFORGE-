@@ -13,7 +13,6 @@ const withPWA = withPWAInit({
 });
 
 const isExport = process.env.NEXT_EXPORT === "1";
-const isProd = process.env.NODE_ENV === "production";
 
 const nextConfig: NextConfig = {
   ...(isExport && { output: "export" }),
