@@ -5,8 +5,8 @@ import "./globals.css";
 const geist = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "VoiceForge AI",
-  description: "Chuyển đổi văn bản thành giọng nói với AI",
+  title: "VoiceForge AI — Text to Speech",
+  description: "Chuyển văn bản thành giọng nói miễn phí, không cần đăng nhập",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
