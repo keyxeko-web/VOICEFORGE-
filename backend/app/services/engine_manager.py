@@ -9,11 +9,21 @@ from enum import Enum
 from app.core.config import settings
 from app.core.exceptions import TTSProcessingException
 from app.services.tts_base import BaseTTSEngine, TTSParams, TTSResult
-from app.services.coqui_engine import CoquiTTSEngine
-from app.services.piper_engine import PiperTTSEngine
+from app.services.espeak_engine import ESpeakEngine
+
+try:
+    from app.services.coqui_engine import CoquiTTSEngine
+except Exception:
+    CoquiTTSEngine = None
+
+try:
+    from app.services.piper_engine import PiperTTSEngine
+except Exception:
+    PiperTTSEngine = None
 
 
 class EngineType(str, Enum):
+    ESPEAK = "espeak"
     COQUI = "coqui"
     PIPER = "piper"
     GOOGLE = "google"
@@ -30,17 +40,26 @@ class TTSEngineManager:
 
     def _init_engines(self):
         """Initialize available engines."""
+        # Always initialize espeak (no model download required)
         try:
-            self._engines[EngineType.COQUI] = CoquiTTSEngine()
-            print("✅ Coqui TTS initialized")
+            self._engines[EngineType.ESPEAK] = ESpeakEngine()
+            print("✅ eSpeak-NG TTS initialized")
         except Exception as e:
-            print(f"⚠️ Coqui TTS not available: {e}")
+            print(f"⚠️ eSpeak-NG not available: {e}")
 
-        try:
-            self._engines[EngineType.PIPER] = PiperTTSEngine()
-            print("✅ Piper TTS initialized")
-        except Exception as e:
-            print(f"⚠️ Piper TTS not available: {e}")
+        if CoquiTTSEngine:
+            try:
+                self._engines[EngineType.COQUI] = CoquiTTSEngine()
+                print("✅ Coqui TTS initialized")
+            except Exception as e:
+                print(f"⚠️ Coqui TTS not available: {e}")
+
+        if PiperTTSEngine:
+            try:
+                self._engines[EngineType.PIPER] = PiperTTSEngine()
+                print("✅ Piper TTS initialized")
+            except Exception as e:
+                print(f"⚠️ Piper TTS not available: {e}")
 
         if settings.GOOGLE_APPLICATION_CREDENTIALS:
             try:

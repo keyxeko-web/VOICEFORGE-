@@ -33,14 +33,15 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     # Check username
-    result = await db.execute(select(User).where(User.username == user_data.username))
+    username = user_data.get_username()
+    result = await db.execute(select(User).where(User.username == username))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username already taken")
 
     # Create user
     new_user = User(
         email=user_data.email,
-        username=user_data.username,
+        username=username,
         hashed_password=get_password_hash(user_data.password),
         full_name=user_data.full_name,
         api_key=generate_api_key()

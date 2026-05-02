@@ -7,7 +7,11 @@ from pydantic import BaseModel, EmailStr
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
+    username: Optional[str] = None
     full_name: Optional[str] = None
+
+    def get_username(self) -> str:
+        return self.username or self.email.split("@")[0]
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -22,9 +26,10 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str] = None
     is_active: bool
-    tier: str
+    rate_limit_tier: str = "free"
     api_key: Optional[str] = None
     created_at: datetime
+
     class Config:
         from_attributes = True
 

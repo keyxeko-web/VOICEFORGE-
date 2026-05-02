@@ -336,3 +336,37 @@ async def batch_generate(
         status="queued",
         generations=generations
     )
+
+
+# ── Quick generate (sync, no Celery needed) ───────────────────────────────────
+from fastapi.responses import Response as FastAPIResponse
+
+@router.post("/quick", tags=["Generations"])
+async def quick_generate(
+    text: str,
+    language: str = "vi",
+    engine: str = "espeak",
+    speed: float = 1.0,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Generate audio immediately (synchronous, no queue)."""
+    from app.services.espeak_engine import ESpeakEngine
+    from app.services.tts_base import TTSParams
+
+    eng = ESpeakEngine()
+    await eng.initialize()
+
+    params = TTSParams(voice_id="espeak-default", 
+        text=text,
+        language=language,
+        speed=speed,
+        pitch=0.0,
+        volume=1.0,
+    )
+    result = await eng.synthesize(params)
+
+    return FastAPIResponse(
+        content=result.audio_data,
+        media_type="audio/wav",
+        headers={"Content-Disposition": f'attachment; filename="voiceforge.wav"'},
+    )
