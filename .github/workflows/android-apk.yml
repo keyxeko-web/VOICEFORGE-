@@ -31,9 +31,15 @@ jobs:
         run: npm ci
 
       - name: Build Next.js static export
-        run: npm run build
-        env:
-          NEXT_EXPORT: "1"
+        run: NEXT_EXPORT=1 npm run build
+
+      - name: Verify static export output
+        run: |
+          if [ ! -d out ] || [ ! -f out/index.html ]; then
+            echo "ERROR: out/ was not created by the build. Check next.config.ts"
+            exit 1
+          fi
+          echo "out/ directory ready ($(ls out | wc -l) files)"
 
       - name: Sync Capacitor
         run: npx cap sync android
