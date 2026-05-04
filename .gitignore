@@ -24,3 +24,17 @@ tsconfig.tsbuildinfo
 
 # vercel
 .vercel
+
+# Claude Code local files
+.claude/settings.local.json
+CLAUDE.local.md
+.claude/session-snapshot.md
+
+# Python backend
+backend/voiceforge.db
+backend/models/
+backend/__pycache__/
+backend/app/**/__pycache__/
+backend/storage/
+*.pyc
+backend/**/__pycache__/
