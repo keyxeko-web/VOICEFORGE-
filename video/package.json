@@ -1,0 +1,30 @@
+{
+  "name": "voiceforge-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion motion-graphics kit — Vietnamese edutainment cartoon style",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts StyleKit out/style-kit.mp4 --codec h264 --crf 17",
+    "gen:maps": "node scripts/gen-maps.mjs",
+    "gen:fonts": "node scripts/gen-fonts.mjs",
+    "gen:sfx": "node scripts/gen-sfx.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.513",
+    "@remotion/fonts": "^4.0.513",
+    "@remotion/google-fonts": "^4.0.513",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "remotion": "^4.0.513"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "d3-geo": "^3.1.1",
+    "topojson-client": "^3.1.0",
+    "typescript": "^7.0.2",
+    "world-atlas": "^2.0.2"
+  }
+}
