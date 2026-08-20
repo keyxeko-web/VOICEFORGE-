@@ -24,3 +24,6 @@ tsconfig.tsbuildinfo
 
 # vercel
 .vercel
+
+# remotion render output + extracted verification frames
+video/out/
